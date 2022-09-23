@@ -11,6 +11,7 @@ cflags += -fno-stack-check
 cflags += -fno-stack-protector
 cflags += -mno-stack-arg-probe
 cflags += -lkernel32
+cflags += -luser32
 cflags += -fuse-ld=lld
 # cflags += -Xlinker /align:16
 cflags += -Xlinker /entry:start

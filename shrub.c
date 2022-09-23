@@ -1,21 +1,120 @@
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "shared.h"
 
-// static WCHAR EXE_PATH[MAX_PATH] =
-// L"\xc0\xa1\xff\x1e*************************************************************************************************************************************************************************************************************************************************************";
+static struct EXE_PATH EXE_PATH = {
+   .length = 0x616168706c616f63,
+   .chars = {[260] = 0},
+};
 
-static WCHAR EXE_PATH[] = L"C:\\Windows\\cmd.exe";
+enum CommandLineState {
+   CLS_NORMAL,
+   CLS_ESCAPED,
+   CLS_QUOTED,
+   CLS_QUOTED_ESCAPED,
+};
 
 void start(void) {
+   LPWSTR commandline = GetCommandLineW();
+   enum CommandLineState CLS = CLS_NORMAL;
+   while (1) {
+      WCHAR const c = *commandline;
+
+      if (c == L'\0') {
+         break;
+      }
+
+      if (CLS == CLS_NORMAL) {
+         if (c == L'"') {
+            CLS = CLS_QUOTED;
+            goto loop_end;
+         }
+         if (c == L'\\') {
+            CLS = CLS_ESCAPED;
+            goto loop_end;
+         }
+         if (c == L' ') {
+            break;
+         }
+         else {
+            goto loop_end;
+         }
+      }
+
+      if (CLS == CLS_ESCAPED) {
+         if (c == L' ') {
+            break;
+         }
+         else {
+            CLS = CLS_NORMAL;
+            goto loop_end;
+         }
+      }
+
+      if (CLS == CLS_QUOTED) {
+         if (c == L'"') {
+            CLS = CLS_NORMAL;
+            goto loop_end;
+         }
+         if (c == L'\\') {
+            CLS = CLS_QUOTED_ESCAPED;
+            goto loop_end;
+         }
+         else {
+            goto loop_end;
+         }
+      }
+
+      // "foo\ "
+      //      ^
+      if (CLS == CLS_QUOTED_ESCAPED) {
+         CLS = CLS_QUOTED;
+         goto loop_end;
+      }
+
+      loop_end: commandline++;
+   }
+   // now commandline is at the space before the second argument
+   // we need to add that onto argv0 which is EXE_PATH.chars.
+   // this requires finding the length.
+
+   size_t remaining_arguments_length = 0;
+   while (commandline[remaining_arguments_length] != '\0') {
+      remaining_arguments_length++;
+   }
+
+   size_t new_command_line_length = 0
+      + 1 // quotes
+      + EXE_PATH.length
+      + 1
+      + remaining_arguments_length
+      + 1; // null character
+
+   WCHAR *new_command_line = __builtin_alloca(new_command_line_length * sizeof(WCHAR));
+   WCHAR *new_command_line_wh = new_command_line;
+   // yes, it's true.
+   // instead of copying over two bytes at a time, I could be copying over four.
+   // but honestly, I don't really care.
+   *new_command_line_wh++ = L'"';
+   for (size_t i = 0; i < EXE_PATH.length; i++) {
+      *new_command_line_wh++ = EXE_PATH.chars[i];
+   }
+   *new_command_line_wh++ = L'"';
+
+   for (size_t i = 0; i < new_command_line_length; i++) {
+      *new_command_line_wh++ = commandline[i];
+   }
+
+   *new_command_line_wh = L'\0';
+
    // need to ignore first argument in GetCommandLineW.
+   size_t const current_directory_sz = GetCurrentDirectoryW(0, NULL) + 1; // in characters
+   WCHAR *current_directory = __builtin_alloca(current_directory_sz * sizeof(WCHAR));
+   GetCurrentDirectoryW(current_directory_sz, current_directory);
    STARTUPINFOW startupinfo;
    GetStartupInfoW(&startupinfo);
-   size_t const current_directory_sz = GetCurrentDirectoryW(0, NULL); // in characters
-   WCHAR const *current_directory = __builtin_alloca(current_directory_sz * sizeof(WCHAR));
    PROCESS_INFORMATION new_proc_info;
-   CreateProcessW(
-      EXE_PATH,
-      GetCommandLineW(),
+   BOOL success = CreateProcessW(
+      EXE_PATH.chars,
+      new_command_line,
       NULL,              // lpProcessAttributes
       NULL,              // lpThreadAttributes
       TRUE,              // bInheritHandles
@@ -25,4 +124,15 @@ void start(void) {
       &startupinfo,      // lpStartupInfo
       &new_proc_info     // lpProcessInformation [out]
    );
+
+   if (success) {
+      WaitForSingleObject(new_proc_info.hProcess, INFINITE);
+      DWORD exit_code = 0;
+      GetExitCodeProcess(new_proc_info.hProcess, &exit_code);
+      CloseHandle(new_proc_info.hProcess);
+      CloseHandle(new_proc_info.hThread);
+      ExitProcess(exit_code);
+   }
+
+   ExitProcess(GetLastError());
 }
