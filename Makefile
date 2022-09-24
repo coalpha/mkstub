@@ -16,21 +16,23 @@ cflags += -fuse-ld=lld
 # cflags += -Xlinker /align:16
 cflags += -Xlinker /entry:start
 cflags += -Xlinker /nodefaultlib
-cflags += -Xlinker /subsystem:console
 cflags += -Xlinker /libpath:"$(libpath)"
 
-build: bin/green.exe
-	$<
+build: bin/mkstub.exe
+	-
 .PHONY: build
 
-bin/shrub.exe: shrub.c
+clean:
+	rd /s /q bin
+
+bin/template.exe: template.c
 	@-mkdir bin
-	clang $< $(cflags) -o $@
+	clang $< $(cflags) -Xlinker /subsystem:windows -o $@
 	llvm-strip $@
 
-bin/shrub.h: bin/shrub.exe
+bin/template.h: bin/template.exe
 	wsl xxd -i $< > $@
 
-bin/green.exe: green.c bin/shrub.h
-	clang $< $(cflags) -o $@
+bin/mkstub.exe: mkstub.c bin/template.h
+	clang $< $(cflags) -Xlinker /subsystem:console -o $@
 	llvm-strip $@
