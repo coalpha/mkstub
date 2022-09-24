@@ -11,24 +11,21 @@ static char const prompt1[] =
    MAX_PATH_WARNING;
 
 void start(void) {
-   unsigned char *pos = bin_template_exe;
-   while (1) {
-      // yes, unaligned memory reads
-      size_t const next_8 = *((size_t *) pos);
-      if (next_8 == sig) break;
-      pos++;
-   }
-   // pos points to size_t .length
+   // so for whatever reason, the data section always seems to be aligned
+   // on 16 bytes.
+   size_t *pos = (size_t *) bin_template_exe;
+   while (*pos != sig) pos++;
+   // pos points to struct EXE_PATH
 
    // write prompt
    HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
    WriteConsoleA(hStdout, prompt0, sizeof(prompt0) - 1, ((DWORD[1]) {}), NULL);
 
    // get response
-   LPWSTR input = __builtin_alloca(262 * sizeof(WCHAR));
+   LPWSTR input = __builtin_alloca(PATH_LIMIT + 2 * sizeof(WCHAR));
    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
    DWORD chars_left;
-   ReadConsoleW(hStdin, input, 262, &chars_left, NULL);
+   ReadConsoleW(hStdin, input, PATH_LIMIT + 2, &chars_left, NULL);
    // console should be line buffered so remove the crlf
    chars_left -= 2;
 
@@ -43,9 +40,9 @@ void start(void) {
    *chars_wh = L'\0';
 
    WriteConsoleA(hStdout, prompt1, sizeof(prompt1), ((DWORD[1]) {}), NULL);
-   char *path_input = __builtin_alloca(262);
+   char *path_input = __builtin_alloca(PATH_LIMIT + 2);
    DWORD read_amount;
-   ReadConsoleA(hStdin, path_input, 262, &read_amount, NULL);
+   ReadConsoleA(hStdin, path_input, PATH_LIMIT + 2, &read_amount, NULL);
    path_input[read_amount - 2] = '\0'; // remove the crlf
 
    HANDLE hStub = CreateFile(
@@ -59,4 +56,5 @@ void start(void) {
    );
    WriteFile(hStub, bin_template_exe, bin_template_exe_len, ((DWORD[1]) {}), NULL);
    ExitProcess(0);
+   __builtin_unreachable();
 }

@@ -132,7 +132,9 @@ void start(void) {
       CloseHandle(new_proc_info.hProcess);
       CloseHandle(new_proc_info.hThread);
       ExitProcess(exit_code);
+      __builtin_unreachable();
    }
 
    ExitProcess(GetLastError());
+   __builtin_unreachable();
 }
