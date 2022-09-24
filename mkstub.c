@@ -1,15 +1,14 @@
 #include "shared.h"
 #include "./bin/template.h"
-#include <consoleapi.h>
 
 size_t const sig = 0x616168706c616f63; // coalphaa
 
 static char const prompt0[] =
    "Generate a stub for a path.\n"
-   "Truncates to 260 characters.\n> ";
+   MAX_PATH_WARNING;
 static char const prompt1[] =
    "Where should the stub be written to?\n"
-   "Truncates to 260 characters.\n> ";
+   MAX_PATH_WARNING;
 
 void start(void) {
    unsigned char *pos = bin_template_exe;

@@ -2,7 +2,7 @@
 
 static struct EXE_PATH EXE_PATH = {
    .length = 0x616168706c616f63,
-   .chars = {[260] = 0},
+   .chars = {[PATH_LIMIT] = 0},
 };
 
 enum CommandLineState {

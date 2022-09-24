@@ -11,9 +11,7 @@ cflags += -fno-stack-check
 cflags += -fno-stack-protector
 cflags += -mno-stack-arg-probe
 cflags += -lkernel32
-cflags += -luser32
-cflags += -fuse-ld=lld
-# cflags += -Xlinker /align:16
+cflags += -Xlinker /align:16
 cflags += -Xlinker /entry:start
 cflags += -Xlinker /nodefaultlib
 cflags += -Xlinker /libpath:"$(libpath)"
@@ -25,7 +23,7 @@ build: bin/mkstub.exe
 clean:
 	rd /s /q bin
 
-bin/template.exe: template.c
+bin/template.exe: template.c shared.h Makefile
 	@-mkdir bin
 	clang $< $(cflags) -Xlinker /subsystem:windows -o $@
 	llvm-strip $@
