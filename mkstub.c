@@ -12,7 +12,7 @@ static char const prompt1[] =
 
 void start(void) {
    // so for whatever reason, the data section always seems to be aligned
-   // on 16 bytes.
+   // on 16 bytes. probably something to do with the /align:16
    size_t *pos = (size_t *) bin_template_exe;
    while (*pos != sig) pos++;
    // pos points to struct EXE_PATH

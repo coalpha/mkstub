@@ -105,10 +105,6 @@ void start(void) {
 
    *new_command_line_wh = L'\0';
 
-   // need to ignore first argument in GetCommandLineW.
-   size_t const current_directory_sz = GetCurrentDirectoryW(0, NULL) + 1; // in characters
-   WCHAR *current_directory = __builtin_alloca(current_directory_sz * sizeof(WCHAR));
-   GetCurrentDirectoryW(current_directory_sz, current_directory);
    STARTUPINFOW startupinfo;
    GetStartupInfoW(&startupinfo);
    PROCESS_INFORMATION new_proc_info;
@@ -120,14 +116,14 @@ void start(void) {
       TRUE,              // bInheritHandles
       0,                 // dwCreationFlags (inherit)
       NULL,              // use parent process's environment block
-      current_directory, // lpCurrentDirectory
+      NULL,              // lpCurrentDirectory (use current directory)
       &startupinfo,      // lpStartupInfo
       &new_proc_info     // lpProcessInformation [out]
    );
 
    if (success) {
       WaitForSingleObject(new_proc_info.hProcess, INFINITE);
-      DWORD exit_code = 0;
+      DWORD exit_code;
       GetExitCodeProcess(new_proc_info.hProcess, &exit_code);
       CloseHandle(new_proc_info.hProcess);
       CloseHandle(new_proc_info.hThread);
