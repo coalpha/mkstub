@@ -32,9 +32,8 @@ What if we were to simply patch the string as it sits in the binary instead of
 recompiling for different target executable paths? Well, that's exactly what's
 done here.
 
-`template.c` is, as it says on the tin, a template stub. Reviewing the binary
-we see a pretty easy-to-recognize sequence of bytes. First, we allocate a bunch
-of space for a counted string.
+`template.c` is, as it says on the tin, a template stub. First, we allocate a
+bunch of space for a counted string.
 
 ```c
 size_t const coalphaa = 0x616168706c616f63; 
