@@ -1,11 +1,11 @@
 #include "shared.h"
 
-static struct EXE_PATH EXE_PATH = {
-   .length = 0x616168706c616f63,
+struct counted_wstr exe_path = {
+   .length = coalphaa,
    .chars = {[PATH_LIMIT] = 0},
 };
 
-enum CommandLineState {
+enum cl_state {
    CLS_NORMAL,
    CLS_ESCAPED,
    CLS_QUOTED,
@@ -13,8 +13,21 @@ enum CommandLineState {
 };
 
 void start(void) {
+   // When we get the command line string for the stub, the first (index = 0)
+   // argument is always going to be the path of the current module (exe).
+   // We definitely don't want that to be passed along to our target executable
+   // so we need to find the end of the first argument.
+   // This means that command line parsing has to happen.
+   // Luckily, this is pretty simple. All we need is a small state machine.
+
+   // See CommandLineToArgvW
+   // https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-commandlinetoargvw
+
+   // See "Parsing C++ Command-Line Arguments "
+   // https://learn.microsoft.com/en-us/previous-versions/17w5ykft(v=vs.85)
+
    LPWSTR commandline = GetCommandLineW();
-   enum CommandLineState CLS = CLS_NORMAL;
+   enum cl_state CLS = CLS_NORMAL;
    while (1) {
       WCHAR const c = *commandline;
 
@@ -72,9 +85,14 @@ void start(void) {
 
       loop_end: commandline++;
    }
-   // now commandline is at the space before the second argument
-   // we need to add that onto argv0 which is EXE_PATH.chars.
-   // this requires finding the length.
+
+   // Now commandline is at the space before the second (index = 1) argument.
+   // To create the command line string for the target executable, we need to
+   // concatenate the rest of `commandline' with `exe_path.chars'.
+   // exe_path.chars + args[1..].join(' ');
+
+   // In order to allocate the nessesary amount of space for the new command
+   // line string, we need to figure out how long the rest of `commandline' is.
 
    size_t remaining_arguments_length = 0;
    while (commandline[remaining_arguments_length] != '\0') {
@@ -83,7 +101,7 @@ void start(void) {
 
    size_t new_command_line_length = 0
       + 1 // quotes
-      + EXE_PATH.length
+      + exe_path.length
       + 1
       + remaining_arguments_length
       + 1; // null character
@@ -94,8 +112,8 @@ void start(void) {
    // instead of copying over two bytes at a time, I could be copying over four.
    // but honestly, I don't really care.
    *new_command_line_wh++ = L'"';
-   for (size_t i = 0; i < EXE_PATH.length; i++) {
-      *new_command_line_wh++ = EXE_PATH.chars[i];
+   for (size_t i = 0; i < exe_path.length; i++) {
+      *new_command_line_wh++ = exe_path.chars[i];
    }
    *new_command_line_wh++ = L'"';
 
@@ -109,7 +127,7 @@ void start(void) {
    GetStartupInfoW(&startupinfo);
    PROCESS_INFORMATION new_proc_info;
    BOOL success = CreateProcessW(
-      EXE_PATH.chars,
+      exe_path.chars,
       new_command_line,
       NULL,              // lpProcessAttributes
       NULL,              // lpThreadAttributes
@@ -122,6 +140,8 @@ void start(void) {
    );
 
    if (success) {
+      // I forgot why we need to do all this waiting stuff but I think things go
+      // fucky if we don't.
       WaitForSingleObject(new_proc_info.hProcess, INFINITE);
       DWORD exit_code;
       GetExitCodeProcess(new_proc_info.hProcess, &exit_code);

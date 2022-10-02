@@ -1,4 +1,4 @@
-libpath := $(shell misc/winsdk.exe --type:lib --arch:x64 --kit:um)
+libpath := $(shell vendor/winsdk.exe --type:lib --arch:x64 --kit:um)
 
 cflags += -Oz
 cflags += -std=c11

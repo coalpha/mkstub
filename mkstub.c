@@ -1,8 +1,6 @@
 #include "shared.h"
 #include "./bin/template.h"
 
-size_t const sig = 0x616168706c616f63; // coalphaa
-
 static char const prompt0[] =
    "Generate a stub for a path.\n"
    MAX_PATH_WARNING;
@@ -14,7 +12,7 @@ void start(void) {
    // so for whatever reason, the data section always seems to be aligned
    // on 16 bytes. probably something to do with the /align:16
    size_t *pos = (size_t *) bin_template_exe;
-   while (*pos != sig) pos++;
+   while (*pos != coalphaa) pos++;
    // pos points to struct EXE_PATH
 
    // write prompt
@@ -29,7 +27,7 @@ void start(void) {
    // console should be line buffered so remove the crlf
    chars_left -= 2;
 
-   struct EXE_PATH *editable = (struct EXE_PATH *) pos;
+   struct counted_wstr *editable = (struct counted_wstr *) pos;
    editable->length = chars_left;
 
    WCHAR *chars_wh = editable->chars;
@@ -39,7 +37,7 @@ void start(void) {
    }
    *chars_wh = L'\0';
 
-   WriteConsoleA(hStdout, prompt1, sizeof(prompt1), ((DWORD[1]) {}), NULL);
+   WriteConsoleA(hStdout, prompt1, sizeof(prompt1) - 1, ((DWORD[1]) {}), NULL);
    char *path_input = __builtin_alloca(PATH_LIMIT + 2);
    DWORD read_amount;
    ReadConsoleA(hStdin, path_input, PATH_LIMIT + 2, &read_amount, NULL);
