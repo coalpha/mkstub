@@ -6,7 +6,7 @@ C_ASSERT(sizeof(size_t) == 8);
 #define PATH_LIMIT 500
 #define MAX_PATH_WARNING "Max path length is 500 characters.\n> "
 
-size_t const coalphaa = 0x616168706c616f63; // coalphaa
+#define coalphaa 0x616168706c616f63
 
 struct counted_wstr {
    size_t length;

@@ -13,7 +13,6 @@ void start(void) {
    // on 16 bytes. probably something to do with the /align:16
    size_t *pos = (size_t *) bin_template_exe;
    while (*pos != coalphaa) pos++;
-   // pos points to struct EXE_PATH
 
    // write prompt
    HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
