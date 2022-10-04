@@ -14,18 +14,25 @@ cflags += -lkernel32
 cflags += -Xlinker /align:16
 cflags += -Xlinker /entry:start
 cflags += -Xlinker /nodefaultlib
+cflags += -Xlinker /subsystem:console
 cflags += -Xlinker /libpath:"$(libpath)"
 
 build: bin/mkstub.exe
 	-
 .PHONY: build
 
+run: bin/mkstub.exe
+	$<
+.PHONY: run
+
 clean:
 	rd /s /q bin
 
+# I'd like template.exe to be subsystem:windows but it fucks with console apps
+# if I do.
 bin/template.exe: template.c shared.h Makefile
 	@-mkdir bin
-	clang $< $(cflags) -Xlinker /subsystem:windows -o $@
+	clang $< $(cflags)  -o $@
 	llvm-strip $@
 
 bin/template.h: bin/template.exe
