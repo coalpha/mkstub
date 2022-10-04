@@ -28,8 +28,8 @@ void start(void) {
 
    LPWSTR commandline = GetCommandLineW();
    enum cl_state CLS = CLS_NORMAL;
-   while (1) {
-      WCHAR const c = *commandline;
+   while (TRUE) {
+      WCHAR const c = commandline[0];
 
       if (c == L'\0') {
          break;
@@ -117,11 +117,11 @@ void start(void) {
    }
    *new_command_line_wh++ = L'"';
 
-   for (size_t i = 0; i < new_command_line_length; i++) {
+   for (size_t i = 0; i < remaining_arguments_length; i++) {
       *new_command_line_wh++ = commandline[i];
    }
 
-   *new_command_line_wh = L'\0';
+   // *new_command_line_wh = L'\0';
 
    STARTUPINFOW startupinfo;
    GetStartupInfoW(&startupinfo);

@@ -1,6 +1,5 @@
 #include "shared.h"
 #include "./bin/template.h"
-#include <errhandlingapi.h>
 
 static char const prompt0[] =
    "mkstub.exe (by coalpha)\n"
@@ -13,39 +12,45 @@ static char const prompt1[] = "stub> ";
 void start(void) {
    // so for whatever reason, the data section always seems to be aligned
    // on 16 bytes. probably something to do with the /align:16
-   size_t *pos = (size_t *) bin_template_exe;
-   while (*pos != coalphaa) pos++;
+   size_t template_offset = 0;
+   while (qwordptr(bin_template_exe + template_offset) != coalphaa)
+      template_offset += sizeof(size_t);
 
    // write prompt
-   HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+   HANDLE const hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
    WriteConsoleA(hStdout, prompt0, sizeof(prompt0) - 1, ((DWORD[1]) {}), NULL);
    // get response
-   LPWSTR input = __builtin_alloca(PATH_LIMIT + 2 * sizeof(WCHAR));
+   LPWSTR target = __builtin_alloca(PATH_LIMIT + 2 * sizeof(WCHAR));
    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-   DWORD chars_left;
-   ReadConsoleW(hStdin, input, PATH_LIMIT + 2, &chars_left, NULL);
+   DWORD target_length;
+   ReadConsoleW(hStdin, target, PATH_LIMIT + 2, &target_length, NULL);
    // console should be line buffered so remove the crlf
-   chars_left -= 2;
+   target_length -= 2;
 
-   // remove trailing quote
-   if (input[chars_left - 1] == L'"') {
-      chars_left--;
-   }
-
-   struct counted_wstr *editable = (struct counted_wstr *) pos;
-   editable->length = chars_left;
-
-   WCHAR *chars_wh = editable->chars;
    // remove leading quote
-   if (*input == L'"') {
-      input++;
-      chars_left--;
+   if (target[0] == L'"') {
+      target++;
+      target_length--;
    }
-   // copy response into binary
-   while (chars_left --> 0) {
-      *chars_wh++ = *input++;
+   // remove trailing quote
+   if (target[target_length - 1] == L'"') {
+      target_length--;
    }
-   // *chars_wh = L'\0'; don't actually need to add the null character
+
+   // copy all the stuff to the wstr
+   struct counted_wstr *const editable =
+      (struct counted_wstr *) (bin_template_exe + template_offset);
+   editable->length = target_length;
+   for (size_t i = 0; i < target_length; i++) {
+      editable->chars[i] = target[i];
+   }
+   // and bump the offset
+   template_offset += sizeof(editable->length);
+   template_offset += target_length * sizeof(WCHAR);
+
+   // now we can trim all the remaining zeros off the string after a 16 byte
+   // alignment of course
+   size_t const final_file_size = ((template_offset / 16) + 1) * 16;
 
    WriteConsoleA(hStdout, prompt1, sizeof(prompt1) - 1, ((DWORD[1]) {}), NULL);
    char *path_input = __builtin_alloca(PATH_LIMIT + 2);
@@ -75,11 +80,11 @@ void start(void) {
       ExitProcess(GetLastError());
       __builtin_unreachable();
    }
-   
+
    BOOL success = WriteFile(
       hStub,
       bin_template_exe,
-      bin_template_exe_len,
+      final_file_size,
       ((DWORD[1]) {}),
       NULL
    );
