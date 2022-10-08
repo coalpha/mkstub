@@ -50,7 +50,7 @@ void start(void) {
 
    // now we can trim all the remaining zeros off the string after a 16 byte
    // alignment of course
-   size_t const final_file_size = ((template_offset / 16) + 1) * 16;
+   size_t const final_file_size = ((template_offset + 15) / 16) * 16;
 
    WriteConsoleA(hStdout, prompt1, sizeof(prompt1) - 1, ((DWORD[1]) {}), NULL);
    char *path_input = __builtin_alloca(PATH_LIMIT + 2);
