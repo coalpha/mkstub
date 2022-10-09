@@ -3,7 +3,7 @@
 
 static char const prompt0[] =
    "mkstub.exe (by coalpha)\n"
-   "The path limit is " PATH_LIMIT_S " characters.\n"
+   "The path limit is " to_str(PATH_LIMIT) " characters.\n"
    "Leading and trailing quotes are ignored.\n"
    "\n"
    "target> ";
