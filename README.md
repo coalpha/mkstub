@@ -1,6 +1,7 @@
 # mkstub
 
-*It just occurred to me that a symlink could accomplish the same thing...*
+Sometimes symlinking to a binary doesn't work since the binary uses `argv[0]`
+to derive the executable's location. That's why we have stubs.
 
 I wanted a way of creating stubs for executables that didn't involve writing a
 batch script. Not only do I not know how to write batch scripts but I'm willing
