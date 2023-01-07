@@ -29,7 +29,7 @@ void start(void) {
       target_error = does_not_exist;
       goto whats_wrong_with_your_target;
    }
-   if (target_attrib == INVALID_FILE_ATTRIBUTES) {
+   if (target_attrib == FILE_ATTRIBUTE_DIRECTORY) {
       target_error = is_a_dir;
       goto whats_wrong_with_your_target;
    }
@@ -49,16 +49,12 @@ void start(void) {
       char *msg_wh = msg;
       qwordptr(msg_wh) = qwordptr("FATAL: ");                    msg_wh += FATAL_SIZE;
       __builtin_memcpy(msg_wh, the_file_path, the_file_path_sz); msg_wh += the_file_path_sz;
-      __builtin_memcpy(msg_wh, exe_path.chars, exe_path.length); msg_wh += exe_path.length;
+      for (size_t i = 0; i < exe_path.length; i++) {
+         msg_wh[i] = exe_path.chars[i];
+      }
+      msg_wh += exe_path.length;
       __builtin_memcpy(msg_wh, target_error, does_not_dir_sz);
-      WriteConsoleA(hStderr, msg, msg_sz, &msg_sz, NULL);
-      Sleep(1);
-      WriteConsoleA(hStderr, ".", 1, &msg_sz, NULL);
-      Sleep(1);
-      WriteConsoleA(hStderr, ".", 1, &msg_sz, NULL);
-      Sleep(1);
-      WriteConsoleA(hStderr, ".", 1, &msg_sz, NULL);
-      Sleep(1);
+      WriteConsoleA(hStderr, msg, msg_sz, IGNORE_WRITE);
       ExitProcess(1);
       __builtin_unreachable();
    }

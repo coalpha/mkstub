@@ -9,7 +9,28 @@ char const header[] =
    "\n"
    "target> ";
 char const stub_[] = "stub> ";
-char const continuing_anyways[] = "Continuing anyways...\n";
+
+HANDLE hStdout;
+HANDLE hStdin;
+DWORD before_program_console_mode;
+
+void wait(void) {
+   SetConsoleMode(hStdin, ENABLE_PROCESSED_INPUT);
+   char const press_any_key[] = "\nPress any key to continue...\n";
+   WriteConsoleA(hStdout, press_any_key, sizeof(press_any_key) - 1, IGNORE_WRITE);
+   ReadConsoleA(hStdin, ((char[1]) {}), 1, IGNORE_WRITE);
+   // assuming that after you wait you die
+   SetConsoleMode(hStdin, before_program_console_mode);
+}
+
+BOOL WINAPI sigint_handler(DWORD signal) {
+   if (signal == CTRL_C_EVENT) {
+      char const interrupt[] = "\nInterrupt. Exiting.\n";
+      WriteConsoleA(hStdout, interrupt, sizeof(interrupt) - 1, IGNORE_WRITE);
+      SetConsoleMode(hStdin, before_program_console_mode);
+   }
+   return 1;
+}
 
 void start(void) {
    // so for whatever reason, the data section always seems to be aligned
@@ -18,16 +39,40 @@ void start(void) {
    while (qwordptr(bin_template_exe + template_offset) != coalphaa)
       template_offset += sizeof(size_t);
 
+   hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+   hStdin = GetStdHandle(STD_INPUT_HANDLE);
+
+   if (!GetConsoleMode(hStdin, &before_program_console_mode)) {
+      __builtin_trap();
+   }
+
+   if (!SetConsoleCtrlHandler(sigint_handler, 1)) {
+      __builtin_trap();
+   }
+
+   SetConsoleMode(hStdin, 0
+      | ENABLE_ECHO_INPUT
+      | ENABLE_LINE_INPUT
+      | ENABLE_PROCESSED_INPUT
+      | ENABLE_QUICK_EDIT_MODE
+      | ENABLE_EXTENDED_FLAGS
+   );
+
    // write prompt
-   HANDLE const hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-   WriteConsoleA(hStdout, header, sizeof(header) - 1, ((DWORD[1]) {}), NULL);
+   WriteConsoleA(hStdout, header, sizeof(header) - 1, IGNORE_WRITE);
    // get response
    LPWSTR target = __builtin_alloca(PATH_LIMIT + 2 * sizeof(WCHAR));
-   HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
    DWORD target_length;
    ReadConsoleW(hStdin, target, PATH_LIMIT + 2, &target_length, NULL);
    // console should be line buffered so remove the crlf
    target_length -= 2;
+
+   if (target_length == 0) {
+      WriteConsoleA(hStdout, "No input", sizeof("No input") - 1, IGNORE_WRITE);
+      wait();
+      ExitProcess(0);
+      __builtin_unreachable();
+   }
 
    // remove leading quote
    if (target[0] == L'"') {
@@ -43,21 +88,36 @@ void start(void) {
    struct counted_wstr *const editable =
       (struct counted_wstr *) (bin_template_exe + template_offset);
    editable->length = target_length;
+   _Bool invalid_characters = 0;
    for (size_t i = 0; i < target_length; i++) {
       WCHAR const c = target[i];
-      if (c < 32) {
-         // control character
+      if (0
+         || c < 32
+         || c == L'"'
+         || c == L'*'
+         || c == L'<'
+         || c == L'>'
+      )
+      {
+         target[i] = '^';
+         invalid_characters = 1;
       }
-      if (c == L'"') {}
-      if (c == L'*') {}
-      if (c == L'.') {}
-      if (c == L'/') {}
-      if (c == L':') {}
-      if (c == L'<') {}
-      if (c == L'>') {}
-      if (c == L'?') {}
-      if (c == L'\\') {}
+      else {
+         target[i] = ' ';
+      }
       editable->chars[i] = c;
+   }
+
+   if (invalid_characters) {
+      WriteConsoleW(hStdout, editable->chars, editable->length, IGNORE_WRITE);
+      WriteConsoleA(hStdout, "\n", 1, IGNORE_WRITE);
+      WriteConsoleW(hStdout, target, target_length, IGNORE_WRITE);
+      WriteConsoleA(hStdout, "\n", 1, IGNORE_WRITE);
+      static char const msg[] = "Invalid characters found in path string!";
+      WriteConsoleA(hStdout, msg, sizeof(msg) - 1, IGNORE_WRITE);
+      wait();
+      ExitProcess(1);
+      __builtin_unreachable();
    }
    // and bump the offset
    template_offset += sizeof(editable->length);
@@ -67,7 +127,7 @@ void start(void) {
    // alignment of course
    size_t const final_file_size = ((template_offset + 15) / 16) * 16;
 
-   WriteConsoleA(hStdout, stub_, sizeof(stub_) - 1, ((DWORD[1]) {}), NULL);
+   WriteConsoleA(hStdout, stub_, sizeof(stub_) - 1, IGNORE_WRITE);
    char *path_input = __builtin_alloca(PATH_LIMIT + 2);
    DWORD read_amount;
    ReadConsoleA(hStdin, path_input, PATH_LIMIT + 2, &read_amount, NULL);
@@ -92,8 +152,7 @@ void start(void) {
       NULL
    );
    if (hStub == INVALID_HANDLE_VALUE) {
-      ExitProcess(GetLastError());
-      __builtin_unreachable();
+      goto DIE_with_last_error;
    }
 
    BOOL success = WriteFile(
@@ -104,12 +163,31 @@ void start(void) {
       NULL
    );
 
-   if (success) {}
-   else {
-      ExitProcess(GetLastError());
+   if (success) {
+      WriteConsoleA(hStdout, "Done", sizeof("Done") - 1, IGNORE_WRITE);
+      wait();
+      ExitProcess(0);
       __builtin_unreachable();
    }
 
-   ExitProcess(0);
-   __builtin_unreachable();
+   DIE_with_last_error: {
+      DWORD const err = GetLastError();
+      char const *msg;
+      DWORD const msg_sz = FormatMessage(0
+         | FORMAT_MESSAGE_ALLOCATE_BUFFER
+         | FORMAT_MESSAGE_FROM_SYSTEM
+         | FORMAT_MESSAGE_IGNORE_INSERTS
+         | (FORMAT_MESSAGE_MAX_WIDTH_MASK & 80),
+         NULL,
+         err,
+         LANG_ENGLISH,
+         (LPSTR) &msg, // so I have to cast this even though what I'm doing
+         0,            // should technically not requrie any casting.
+         NULL
+      );
+      WriteConsoleA(hStdout, msg, msg_sz, IGNORE_WRITE);
+      wait();
+      ExitProcess(err);
+      __builtin_unreachable();
+   }
 }

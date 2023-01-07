@@ -14,3 +14,5 @@ struct counted_wstr {
    size_t length;
    WCHAR chars[];
 };
+
+#define IGNORE_WRITE ((DWORD[1]) {}), NULL
