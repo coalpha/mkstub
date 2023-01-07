@@ -1,13 +1,15 @@
 #include "shared.h"
 #include "./bin/template.h"
 
-static char const prompt0[] =
-   "mkstub.exe (by coalpha)\n"
+char const header[] =
+   "mkstub.exe\n"
+   "An interactive program to create stubs.\n"
    "The path limit is " to_str(PATH_LIMIT) " characters.\n"
    "Leading and trailing quotes are ignored.\n"
    "\n"
    "target> ";
-static char const prompt1[] = "stub> ";
+char const stub_[] = "stub> ";
+char const continuing_anyways[] = "Continuing anyways...\n";
 
 void start(void) {
    // so for whatever reason, the data section always seems to be aligned
@@ -18,7 +20,7 @@ void start(void) {
 
    // write prompt
    HANDLE const hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-   WriteConsoleA(hStdout, prompt0, sizeof(prompt0) - 1, ((DWORD[1]) {}), NULL);
+   WriteConsoleA(hStdout, header, sizeof(header) - 1, ((DWORD[1]) {}), NULL);
    // get response
    LPWSTR target = __builtin_alloca(PATH_LIMIT + 2 * sizeof(WCHAR));
    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
@@ -42,7 +44,20 @@ void start(void) {
       (struct counted_wstr *) (bin_template_exe + template_offset);
    editable->length = target_length;
    for (size_t i = 0; i < target_length; i++) {
-      editable->chars[i] = target[i];
+      WCHAR const c = target[i];
+      if (c < 32) {
+         // control character
+      }
+      if (c == L'"') {}
+      if (c == L'*') {}
+      if (c == L'.') {}
+      if (c == L'/') {}
+      if (c == L':') {}
+      if (c == L'<') {}
+      if (c == L'>') {}
+      if (c == L'?') {}
+      if (c == L'\\') {}
+      editable->chars[i] = c;
    }
    // and bump the offset
    template_offset += sizeof(editable->length);
@@ -52,7 +67,7 @@ void start(void) {
    // alignment of course
    size_t const final_file_size = ((template_offset + 15) / 16) * 16;
 
-   WriteConsoleA(hStdout, prompt1, sizeof(prompt1) - 1, ((DWORD[1]) {}), NULL);
+   WriteConsoleA(hStdout, stub_, sizeof(stub_) - 1, ((DWORD[1]) {}), NULL);
    char *path_input = __builtin_alloca(PATH_LIMIT + 2);
    DWORD read_amount;
    ReadConsoleA(hStdin, path_input, PATH_LIMIT + 2, &read_amount, NULL);
